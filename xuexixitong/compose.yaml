@@ -1,0 +1,13 @@
+version: '2'
+services:
+  xuexixitong:
+    # restart: always
+    image: idhar01/web:latest
+    container_name: xuexixitong
+    ports:
+      - "8081:8080"
+    networks:
+      - xuexixitong
+networks:
+  xuexixitong:
+    external: true

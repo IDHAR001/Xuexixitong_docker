@@ -1,0 +1,344 @@
+package com.controller;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import com.alibaba.fastjson.JSONObject;
+import java.util.*;
+import org.springframework.beans.BeanUtils;
+import javax.servlet.http.HttpServletRequest;
+import org.springframework.web.context.ContextLoader;
+import javax.servlet.ServletContext;
+import com.service.TokenService;
+import com.utils.StringUtil;
+import java.lang.reflect.InvocationTargetException;
+
+import com.service.DictionaryService;
+import org.apache.commons.lang3.StringUtils;
+import com.annotation.IgnoreAuth;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.*;
+import com.baomidou.mybatisplus.mapper.EntityWrapper;
+import com.baomidou.mybatisplus.mapper.Wrapper;
+import com.entity.*;
+import com.entity.view.*;
+import com.service.*;
+import com.utils.PageUtils;
+import com.utils.R;
+import com.alibaba.fastjson.*;
+
+/**
+ * 考勤请假
+ * 后端接口
+ * @author
+ * @email
+*/
+@RestController
+@Controller
+@RequestMapping("/kaoqinqingjia")
+public class KaoqinqingjiaController {
+    private static final Logger logger = LoggerFactory.getLogger(KaoqinqingjiaController.class);
+
+    @Autowired
+    private KaoqinqingjiaService kaoqinqingjiaService;
+
+    @Autowired
+    private DictionaryService dictionaryService;
+
+    //级联表service
+    @Autowired
+    private XueshengService xueshengService;
+
+    @Autowired
+    private KechnegkaoqinService kechnegkaoqinService;
+
+    @Autowired
+    private KaoqinxiangqingService kaoqinxiangqingService;
+
+
+
+
+    /**
+    * 后端列表
+    */
+    @RequestMapping("/page")
+    public R page(@RequestParam Map<String, Object> params, HttpServletRequest request){
+        logger.debug("page方法:,,Controller:{},,params:{}",this.getClass().getName(),JSONObject.toJSONString(params));
+        String role = String.valueOf(request.getSession().getAttribute("role"));
+        if(StringUtil.isEmpty(role))
+            return R.error(511,"权限为空");
+        else if("学生".equals(role))
+            params.put("xueshengId",request.getSession().getAttribute("userId"));
+        else if("教师".equals(role))
+            params.put("jiaoshiId",request.getSession().getAttribute("userId"));
+        if(params.get("orderBy")==null || params.get("orderBy")==""){
+            params.put("orderBy","id");
+        }
+        PageUtils page = kaoqinqingjiaService.queryPage(params);
+
+        //字典表数据转换
+        List<KaoqinqingjiaView> list =(List<KaoqinqingjiaView>)page.getList();
+        for(KaoqinqingjiaView c:list){
+            //修改对应字典表字段
+            dictionaryService.dictionaryConvert(c, request);
+        }
+        return R.ok().put("data", page);
+    }
+
+    /**
+    * 后端详情
+    */
+    @RequestMapping("/info/{id}")
+    public R info(@PathVariable("id") Long id, HttpServletRequest request){
+        logger.debug("info方法:,,Controller:{},,id:{}",this.getClass().getName(),id);
+        KaoqinqingjiaEntity kaoqinqingjia = kaoqinqingjiaService.selectById(id);
+        if(kaoqinqingjia !=null){
+            //entity转view
+            KaoqinqingjiaView view = new KaoqinqingjiaView();
+            BeanUtils.copyProperties( kaoqinqingjia , view );//把实体数据重构到view中
+
+                //级联表
+                XueshengEntity xuesheng = xueshengService.selectById(kaoqinqingjia.getXueshengId());
+                if(xuesheng != null){
+                    BeanUtils.copyProperties( xuesheng , view ,new String[]{ "id", "createDate"});//把级联的数据添加到view中,并排除id和创建时间字段
+                    view.setXueshengId(xuesheng.getId());
+                }
+            //修改对应字典表字段
+            dictionaryService.dictionaryConvert(view, request);
+            return R.ok().put("data", view);
+        }else {
+            return R.error(511,"查不到数据");
+        }
+
+    }
+
+    /**
+    * 后端保存
+    */
+    @RequestMapping("/save")
+    public R save(@RequestBody KaoqinqingjiaEntity kaoqinqingjia, HttpServletRequest request){
+        logger.debug("save方法:,,Controller:{},,kaoqinqingjia:{}",this.getClass().getName(),kaoqinqingjia.toString());
+
+        String role = String.valueOf(request.getSession().getAttribute("role"));
+        if(StringUtil.isEmpty(role))
+            return R.error(511,"权限为空");
+        else if("学生".equals(role))
+            kaoqinqingjia.setXueshengId(Integer.valueOf(String.valueOf(request.getSession().getAttribute("userId"))));
+        Wrapper<KaoqinqingjiaEntity> queryWrapper = new EntityWrapper<KaoqinqingjiaEntity>()
+            .eq("kechnegkaoqin_uuid_number", kaoqinqingjia.getKechnegkaoqinUuidNumber())
+            .eq("xuesheng_id", kaoqinqingjia.getXueshengId())
+            .eq("kaoqinqingjia_types", kaoqinqingjia.getKaoqinqingjiaTypes())
+            ;
+
+        logger.info("sql语句:"+queryWrapper.getSqlSegment());
+        KaoqinqingjiaEntity kaoqinqingjiaEntity = kaoqinqingjiaService.selectOne(queryWrapper);
+        if(kaoqinqingjiaEntity==null){
+            kaoqinqingjia.setInsertTime(new Date());
+            kaoqinqingjia.setCreateTime(new Date());
+            kaoqinqingjiaService.insert(kaoqinqingjia);
+            return R.ok();
+        }else {
+            return R.error(511,"不可以重复请假！！！");
+        }
+    }
+
+    /**
+    * 后端修改
+    */
+    @RequestMapping("/update")
+    public R update(@RequestBody KaoqinqingjiaEntity kaoqinqingjia, HttpServletRequest request){
+        logger.debug("update方法:,,Controller:{},,kaoqinqingjia:{}",this.getClass().getName(),kaoqinqingjia.toString());
+
+        String role = String.valueOf(request.getSession().getAttribute("role"));
+        if(StringUtil.isEmpty(role))
+            return R.error(511,"权限为空");
+        else if("学生".equals(role))
+            kaoqinqingjia.setXueshengId(Integer.valueOf(String.valueOf(request.getSession().getAttribute("userId"))));
+        //根据字段查询是否有相同数据
+        Wrapper<KaoqinqingjiaEntity> queryWrapper = new EntityWrapper<KaoqinqingjiaEntity>()
+            .notIn("id",kaoqinqingjia.getId())
+            .andNew()
+            .eq("kechnegkaoqin_uuid_number", kaoqinqingjia.getKechnegkaoqinUuidNumber())
+            .eq("xuesheng_id", kaoqinqingjia.getXueshengId())
+            .eq("kaoqinqingjia_types", kaoqinqingjia.getKaoqinqingjiaTypes())
+            ;
+
+        logger.info("sql语句:"+queryWrapper.getSqlSegment());
+        KaoqinqingjiaEntity kaoqinqingjiaEntity = kaoqinqingjiaService.selectOne(queryWrapper);
+        if(kaoqinqingjiaEntity==null){
+            //  String role = String.valueOf(request.getSession().getAttribute("role"));
+            //  if("".equals(role)){
+            //      kaoqinqingjia.set
+            //  }
+            kaoqinqingjiaService.updateById(kaoqinqingjia);//根据id更新
+            return R.ok();
+        }else {
+            return R.error(511,"表中有相同数据");
+        }
+    }
+
+    /**
+    * 删除
+    */
+    @RequestMapping("/delete")
+    public R delete(@RequestBody Integer[] ids){
+        logger.debug("delete:,,Controller:{},,ids:{}",this.getClass().getName(),ids.toString());
+        kaoqinqingjiaService.deleteBatchIds(Arrays.asList(ids));
+        return R.ok();
+    }
+
+
+    /**
+     * 审核
+     */
+    @RequestMapping("/shenhe")
+    public R shenhe(Integer id, Integer kaoqinqingjiaTypes,HttpServletRequest request){
+        if(id == null || kaoqinqingjiaTypes == null){
+            return R.error("所需数据为空");
+        }
+        //获取请考勤假表信息
+        KaoqinqingjiaEntity kaoqinqingjia = kaoqinqingjiaService.selectById(id);
+        //获取课程考勤表信息
+        KechnegkaoqinEntity kechnegkaoqin = kechnegkaoqinService.selectById(kaoqinqingjia.getKechnegkaoqinId());
+
+
+        //判断审核结果
+        if(kaoqinqingjiaTypes == 2){
+            kaoqinqingjia.setKaoqinqingjiaTypes(kaoqinqingjiaTypes);
+            kechnegkaoqin.setQingjiarenshu(kechnegkaoqin.getQingjiarenshu()+1);
+            KaoqinxiangqingEntity kaoqinxiangqing = new KaoqinxiangqingEntity();
+            kaoqinxiangqing.setCreateTime(new Date());
+            kaoqinxiangqing.setInsertTime(new Date());
+            kaoqinxiangqing.setXueshengId((Integer)request.getSession().getAttribute("userId"));
+            kaoqinxiangqing.setKaoqinTypes(2);
+            kaoqinxiangqing.setKechnegkaoqinUuidNumber(kechnegkaoqin.getKechnegkaoqinUuidNumber());
+            boolean insert = kaoqinxiangqingService.insert(kaoqinxiangqing);
+            if(!insert){
+                return R.error();
+            }
+        }else{
+            kaoqinqingjia.setKaoqinqingjiaTypes(kaoqinqingjiaTypes);
+        }
+
+        boolean b = kaoqinqingjiaService.updateById(kaoqinqingjia);
+        if(!b){
+            return R.error();
+        }
+        boolean b1 = kechnegkaoqinService.updateById(kechnegkaoqin);
+        if(!b1){
+            return R.error();
+        }
+        return R.ok();
+    }
+
+
+
+
+
+    /**
+    * 前端列表
+    */
+    @IgnoreAuth    @RequestMapping("/list")
+    public R list(@RequestParam Map<String, Object> params, HttpServletRequest request){
+        logger.debug("list方法:,,Controller:{},,params:{}",this.getClass().getName(),JSONObject.toJSONString(params));
+
+        String role = String.valueOf(request.getSession().getAttribute("role"));
+        if(StringUtil.isEmpty(role))
+            return R.error(511,"权限为空");
+        else if("学生".equals(role))
+            params.put("xueshengId",request.getSession().getAttribute("userId"));
+        else if("教师".equals(role))
+            params.put("jiaoshiId",request.getSession().getAttribute("userId"));
+
+        // 没有指定排序字段就默认id倒序
+        if(StringUtil.isEmpty(String.valueOf(params.get("orderBy")))){
+            params.put("orderBy","id");
+        }
+        PageUtils page = kaoqinqingjiaService.queryPage(params);
+
+        //字典表数据转换
+        List<KaoqinqingjiaView> list =(List<KaoqinqingjiaView>)page.getList();
+        for(KaoqinqingjiaView c:list)
+            dictionaryService.dictionaryConvert(c, request); //修改对应字典表字段
+        return R.ok().put("data", page);
+    }
+
+    /**
+    * 前端详情
+    */
+    @RequestMapping("/detail/{id}")
+    public R detail(@PathVariable("id") Long id, HttpServletRequest request){
+        logger.debug("detail方法:,,Controller:{},,id:{}",this.getClass().getName(),id);
+        KaoqinqingjiaEntity kaoqinqingjia = kaoqinqingjiaService.selectById(id);
+            if(kaoqinqingjia !=null){
+                //entity转view
+                KaoqinqingjiaView view = new KaoqinqingjiaView();
+                BeanUtils.copyProperties( kaoqinqingjia , view );//把实体数据重构到view中
+
+                //级联表
+                    XueshengEntity xuesheng = xueshengService.selectById(kaoqinqingjia.getXueshengId());
+                if(xuesheng != null){
+                    BeanUtils.copyProperties( xuesheng , view ,new String[]{ "id", "createDate"});//把级联的数据添加到view中,并排除id和创建时间字段
+                    view.setXueshengId(xuesheng.getId());
+                }
+                //修改对应字典表字段
+                dictionaryService.dictionaryConvert(view, request);
+                return R.ok().put("data", view);
+            }else {
+                return R.error(511,"查不到数据");
+            }
+    }
+
+
+    /**
+    * 前端保存
+    */
+    @RequestMapping("/add")
+    public R add(@RequestBody KaoqinqingjiaEntity kaoqinqingjia, HttpServletRequest request){
+        logger.debug("add方法:,,Controller:{},,kaoqinqingjia:{}",this.getClass().getName(),kaoqinqingjia.toString());
+        Wrapper<KaoqinqingjiaEntity> queryWrapper = new EntityWrapper<KaoqinqingjiaEntity>()
+            .eq("kechnegkaoqin_uuid_number", kaoqinqingjia.getKechnegkaoqinUuidNumber())
+            .eq("xuesheng_id", kaoqinqingjia.getXueshengId())
+            .eq("kaoqinqingjia_text", kaoqinqingjia.getKaoqinqingjiaText())
+            .eq("kaoqinqingjia_types", kaoqinqingjia.getKaoqinqingjiaTypes())
+            ;
+        logger.info("sql语句:"+queryWrapper.getSqlSegment());
+        KaoqinqingjiaEntity kaoqinqingjiaEntity = kaoqinqingjiaService.selectOne(queryWrapper);
+        if(kaoqinqingjiaEntity==null){
+            kaoqinqingjia.setInsertTime(new Date());
+            kaoqinqingjia.setCreateTime(new Date());
+        //  String role = String.valueOf(request.getSession().getAttribute("role"));
+        //  if("".equals(role)){
+        //      kaoqinqingjia.set
+        //  }
+        kaoqinqingjiaService.insert(kaoqinqingjia);
+            return R.ok();
+        }else {
+            return R.error(511,"表中有相同数据");
+        }
+    }
+
+
+
+
+}
+

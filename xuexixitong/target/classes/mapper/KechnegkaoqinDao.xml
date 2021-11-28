@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dao.KechnegkaoqinDao">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        a.id as id
+        ,a.kechnegkaoqin_uuid_number as kechnegkaoqinUuidNumber
+        ,a.kecheng_id as kechengId
+        ,a.zongrenshu as zongrenshu
+        ,a.yidaorenshu as yidaorenshu
+        ,a.qingjiarenshu as qingjiarenshu
+        ,a.kaoqin_time as kaoqinTime
+        ,a.create_time as createTime
+    </sql>
+    <select id="selectListView" parameterType="map" resultType="com.entity.view.KechnegkaoqinView" >
+        SELECT
+        <include refid="Base_Column_List" />
+
+--         级联表的字段
+        ,kecheng.kecheng_name as kechengName
+        ,kecheng.kecheng_types as kechengTypes
+        ,kecheng.jiaoshi_id as jiaoshiId
+        ,kecheng.banji_types as banjiTypes
+        ,kecheng.shangke_time as shangkeTime
+        ,kecheng.xiake_time as xiakeTime
+
+        FROM kechnegkaoqin  a
+        left JOIN kecheng kecheng ON a.kecheng_id = kecheng.id
+
+        <where>
+            <if test="params.ids != null">
+                and a.id in
+                <foreach item="item" index="index" collection="params.ids" open="(" separator="," close=")">
+                #{item}
+                </foreach>
+            </if>
+            <if test=" params.kechnegkaoqinUuidNumber != '' and params.kechnegkaoqinUuidNumber != null and params.kechnegkaoqinUuidNumber != 'null' ">
+                and a.kechnegkaoqin_uuid_number like CONCAT('%',#{params.kechnegkaoqinUuidNumber},'%')
+            </if>
+            <if test="params.kechengId != null and params.kechengId != ''">
+                and a.kecheng_id = #{params.kechengId}
+            </if>
+            <if test="params.zongrenshuStart != null and params.zongrenshuStart != ''">
+                <![CDATA[  and a.zongrenshu >= #{params.zongrenshuStart}   ]]>
+            </if>
+            <if test="params.zongrenshuEnd != null and params.zongrenshuEnd != ''">
+                <![CDATA[  and a.zongrenshu <= #{params.zongrenshuEnd}   ]]>
+            </if>
+             <if test="params.zongrenshu != null and params.zongrenshu != ''">
+                and a.zongrenshu = #{params.zongrenshu}
+             </if>
+            <if test="params.yidaorenshuStart != null and params.yidaorenshuStart != ''">
+                <![CDATA[  and a.yidaorenshu >= #{params.yidaorenshuStart}   ]]>
+            </if>
+            <if test="params.yidaorenshuEnd != null and params.yidaorenshuEnd != ''">
+                <![CDATA[  and a.yidaorenshu <= #{params.yidaorenshuEnd}   ]]>
+            </if>
+             <if test="params.yidaorenshu != null and params.yidaorenshu != ''">
+                and a.yidaorenshu = #{params.yidaorenshu}
+             </if>
+            <if test="params.qingjiarenshuStart != null and params.qingjiarenshuStart != ''">
+                <![CDATA[  and a.qingjiarenshu >= #{params.qingjiarenshuStart}   ]]>
+            </if>
+            <if test="params.qingjiarenshuEnd != null and params.qingjiarenshuEnd != ''">
+                <![CDATA[  and a.qingjiarenshu <= #{params.qingjiarenshuEnd}   ]]>
+            </if>
+             <if test="params.qingjiarenshu != null and params.qingjiarenshu != ''">
+                and a.qingjiarenshu = #{params.qingjiarenshu}
+             </if>
+            <if test=" params.kaoqinTimeStart != '' and params.kaoqinTimeStart != null ">
+                <![CDATA[  and UNIX_TIMESTAMP(a.kaoqin_time) >= UNIX_TIMESTAMP(#{params.kaoqinTimeStart}) ]]>
+            </if>
+            <if test=" params.kaoqinTimeEnd != '' and params.kaoqinTimeEnd != null ">
+                <![CDATA[  and UNIX_TIMESTAMP(a.kaoqin_time) <= UNIX_TIMESTAMP(#{params.kaoqinTimeEnd}) ]]>
+            </if>
+
+            <if test=" params.kechengName != '' and params.kechengName != null and params.kechengName != 'null' ">
+                and kecheng.kecheng_name like CONCAT('%',#{params.kechengName},'%')
+            </if>
+            <if test="params.kechengTypes != null  and params.kechengTypes != ''">
+                and kecheng.kecheng_types = #{params.kechengTypes}
+            </if>
+
+            <if test="params.banjiTypes != null  and params.banjiTypes != ''">
+                and kecheng.banji_types = #{params.banjiTypes}
+            </if>
+
+            <if test=" params.shangkeTimeStart != '' and params.shangkeTimeStart != null ">
+                <![CDATA[  and UNIX_TIMESTAMP(kecheng.shangke_time) >= UNIX_TIMESTAMP(#{params.shangkeTimeStart}) ]]>
+            </if>
+            <if test=" params.shangkeTimeEnd != '' and params.shangkeTimeEnd != null ">
+                <![CDATA[  and UNIX_TIMESTAMP(kecheng.shangke_time) <= UNIX_TIMESTAMP(#{params.shangkeTimeEnd}) ]]>
+            </if>
+            <if test=" params.xiakeTimeStart != '' and params.xiakeTimeStart != null ">
+                <![CDATA[  and UNIX_TIMESTAMP(kecheng.xiake_time) >= UNIX_TIMESTAMP(#{params.xiakeTimeStart}) ]]>
+            </if>
+            <if test=" params.xiakeTimeEnd != '' and params.xiakeTimeEnd != null ">
+                <![CDATA[  and UNIX_TIMESTAMP(kecheng.xiake_time) <= UNIX_TIMESTAMP(#{params.xiakeTimeEnd}) ]]>
+            </if>
+        </where>
+
+        order by a.${params.orderBy} desc 
+    </select>
+
+</mapper>
